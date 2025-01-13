@@ -15,6 +15,7 @@ out = "out"
 dot_env = ".env"
 
 ## Networks
+dependencies = ["snekmate"]
 [tool.moccasin.networks.pyevm]
 is_zksync = false
 

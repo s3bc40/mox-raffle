@@ -9,26 +9,44 @@
     with different addresses can enter multiple times.
 """
 ################################################################
+#                           IMPORTS                            #
+################################################################
+from snekmate.auth import ownable
+
+initializes: ownable
+
+exports: ownable.owner
+
+
+################################################################
 #                          CONSTANTS                           #
 ################################################################
-MAX_PLAYERS: constant(uint256) = 200
-ENTRANCE_FEE: constant(uint256) = as_wei_value(2, "ether")
-OWNER: immutable(address)
+MAX_PLAYERS: public(constant(uint256)) = 200
+ENTRANCE_FEE: public(constant(uint256)) = as_wei_value(1, "ether")
 
 
 ################################################################
 #                       STATE VARIABLES                        #
 ################################################################
-_players: DynArray[address, MAX_PLAYERS]
-_fee_by_players: HashMap[address, uint256]
-_pool_prize: uint256
+players: DynArray[address, MAX_PLAYERS]
+fee_by_players: public(HashMap[address, uint256])
+pool_prize: public(uint256)
+
+
+################################################################
+#                            EVENTS                            #
+################################################################
+event EnteredRaffle:
+    player: indexed(address)
+    amount: uint256
+
 
 ################################################################
 #                   CONSTRUCTOR AND FALLBACK                   #
 ################################################################
 @deploy
 def __init__():
-    OWNER = msg.sender
+    ownable.__init__()
 
 
 @external
@@ -43,6 +61,7 @@ def __default__():
 @external
 @payable
 def enter_raffle():
+    assert len(self.players) < MAX_PLAYERS, "Players limit reached"
     self._enter_raffle(msg.sender, msg.value)
 
 
@@ -55,15 +74,22 @@ def _enter_raffle(sender: address, amount: uint256):
     assert sender != empty(address), "Sender should not be 0 address"
     assert amount >= ENTRANCE_FEE, "Insufficient entrance fee"
     assert (
-        sender not in self._players
-    ), "You are already registered to the raffle"
+        sender not in self.players
+    ), "Player already registered to the raffle"
 
-    # Effect/Interaction
-    self._players.append(sender)
-    self._fee_by_players[sender] = amount
-    self._pool_prize += amount
+    # Effect
+    self.players.append(sender)
+    self.fee_by_players[sender] = amount
+    self.pool_prize += amount
 
+    # Interaction
+    log EnteredRaffle(sender, amount)
 
 ################################################################
 #                        VIEW FUNCTIONS                        #
 ################################################################
+@view
+@external
+def get_players_count() -> uint256:
+    return len(self.players)
+    
