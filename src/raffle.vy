@@ -45,6 +45,7 @@ MAX_PLAYERS: public(constant(uint256)) = 200
 ENTRANCE_FEE: public(constant(uint256)) = as_wei_value(1, "ether")
 # 10 sec duration by default
 DEFAULT_DURATION: public(constant(uint256)) = 10
+MAX_ARRAY_SIZE: constant(uint256) = 10
 
 ################################################################
 #                       STATE VARIABLES                        #
@@ -142,11 +143,14 @@ def _enter_raffle(sender: address, amount: uint256):
     # Interaction
     log EnteredRaffle(sender, amount)
 
-@external
-def set_raffle_duration(duration: uint256):
-    ownable._check_owner()
-    assert duration >= DEFAULT_DURATION, "Minimun set for duration not respected"
-    self.duration = duration
+
+@internal
+def fulfillRandomWords(request_id: uint256, randomWords: DynArray[uint256, MAX_ARRAY_SIZE]):
+    """ Callback VRF function
+    @dev see: https://docs.chain.link/vrf/v2-5/overview/subscription
+    """
+    pass
+    
 
 
 ################################################################
@@ -157,3 +161,12 @@ def set_raffle_duration(duration: uint256):
 def get_players_count() -> uint256:
     return len(self.players)
     
+
+################################################################
+#                      GETTERS & SETTERS                       #
+################################################################
+@external
+def set_raffle_duration(duration: uint256):
+    ownable._check_owner()
+    assert duration >= DEFAULT_DURATION, "Minimun set for duration not respected"
+    self.duration = duration
