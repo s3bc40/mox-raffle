@@ -105,7 +105,7 @@ def test_raffle_players_limit_reached(raffle_contract):
 ################################################################
 def test_raffle_pick_winner_duration_not_reached(raffle_contract_with_players):
     # Arrange/Act/Assert
-    with boa.reverts("Raffle duration is not reached"):
+    with boa.reverts("Raffle can not select a winner yet"):
         raffle_contract_with_players.pick_winner()
 
 
@@ -126,46 +126,23 @@ def test_raffle_pick_winner_transaction_failed(mock_raffle_pick_winner):
         mock_raffle_pick_winner.pick_winner()
 
 
-def test_raffle_pick_winner(raffle_contract_with_players):
+def test_raffle_pick_winner_pass(raffle_contract, player_in_raffle, vrf_coordinator):
     # Arrange
-    raffle_balance: int = boa.env.get_balance(raffle_contract_with_players.address)
-    boa.env.time_travel(
-        raffle_contract_with_players.last_timestamp()
-        + raffle_contract_with_players.duration()
-    )
+    raffle_balance: int = boa.env.get_balance(raffle_contract.address)
+    boa.env.time_travel(raffle_contract.last_timestamp() + raffle_contract.DURATION())
 
     # Act
-    raffle_contract_with_players.pick_winner()
+    raffle_contract.pick_winner()
+    print(raffle_contract.VRF_COORDINATOR_2_5())
+    print(vrf_coordinator.address)
+    with boa.env.prank(vrf_coordinator.address):
+        vrf_coordinator.fulfillRandomWords(0, raffle_contract.address)
 
     # Assert
-    logs = raffle_contract_with_players.get_logs()
+    logs = vrf_coordinator.get_logs()
     log_picked_winner = logs[0].topics[0]
 
-    assert log_picked_winner == raffle_contract_with_players.last_winner()
-    assert (
-        boa.env.get_balance(raffle_contract_with_players.last_winner())
-        >= raffle_balance
-    )
-    assert raffle_contract_with_players.get_players_count() == 0
-    assert boa.env.get_balance(raffle_contract_with_players.address) == 0
-
-
-################################################################
-#                     GETTERS AND SETTERS                      #
-################################################################
-def test_raffle_set_duration_not_owner(raffle_contract):
-    with boa.env.prank(RANDOM_USER):
-        with boa.reverts("ownable: caller is not the owner"):
-            raffle_contract.set_raffle_duration(UPDATED_DURATION)
-
-
-def test_raffle_set_duration_too_low(raffle_contract):
-    with boa.env.prank(raffle_contract.owner()):
-        with boa.reverts("Minimun set for duration not respected"):
-            raffle_contract.set_raffle_duration(INSUFICIENT_DURATION)
-
-
-def test_raffle_get_duration(raffle_contract):
-    with boa.env.prank(raffle_contract.owner()):
-        raffle_contract.set_raffle_duration(UPDATED_DURATION)
-    assert raffle_contract.duration() == UPDATED_DURATION
+    assert log_picked_winner == raffle_contract.last_winner() == player_in_raffle
+    assert boa.env.get_balance(player_in_raffle) >= raffle_balance
+    assert raffle_contract.get_players_count() == 0
+    assert boa.env.get_balance(raffle_contract.address) == 0

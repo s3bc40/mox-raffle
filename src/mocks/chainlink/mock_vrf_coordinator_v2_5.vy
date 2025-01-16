@@ -285,7 +285,7 @@ def fulfillRandomWordsWithOverride(
     if len(words) == 0:
         words = []
         for i: uint32 in range(MAX_WORD_SIZE):
-            words[i] = convert(keccak256(abi_encode(request_id, i)), uint256)
+            words.append(convert(keccak256(abi_encode(request_id, i)), uint256))
     elif convert(len(words), uint32) != MAX_WORD_SIZE:
         raise INVALID_RANDOM_WORDS
 
@@ -298,9 +298,7 @@ def fulfillRandomWordsWithOverride(
     self.config.reentrancy_lock = True
     success: bool = False
     response: Bytes[32] = b""
-    success, response = raw_call(
-        consumer, callReq, max_outsize=32, revert_on_failure=False
-    )
+    response = raw_call(consumer, callReq, max_outsize=32)
     self.config.reentrancy_lock = False
 
     log RandomWordsFulfilled(

@@ -15,3 +15,8 @@ def requestRandomWords(
     num_words: uint32,
 ) -> uint256:
     ...
+
+
+@external
+def fulfillRandomWords(request_id: uint256, consumer: address):
+    ...
