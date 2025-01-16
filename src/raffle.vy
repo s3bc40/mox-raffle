@@ -13,7 +13,12 @@
 #                           IMPORTS                            #
 ################################################################
 from snekmate.auth import ownable
+from src.interfaces import VRFCoordinatorV2_5
 
+
+################################################################
+#                           MODULES                            #
+################################################################
 initializes: ownable
 
 exports: ownable.owner
@@ -24,6 +29,7 @@ exports: ownable.owner
 event EnteredRaffle:
     player: indexed(address)
     amount: uint256
+
 
 event PickedWinnerRaffle:
     winner: indexed(address)
@@ -39,13 +45,20 @@ flag RaffleState:
 
 
 ################################################################
-#                          CONSTANTS                           #
+#                    CONSTANTS & IMMUTABLES                    #
 ################################################################
+VRF_COORDINATOR_2_5: public(immutable(VRFCoordinatorV2_5))
+KEY_HASH: public(immutable(bytes32))
+SUB_ID: public(immutable(uint256))
+MIN_REQUEST_CONFIRMATION: public(immutable(uint16))
+CALLBACK_GAS_LIMIT: public(immutable(uint32))
+
 MAX_PLAYERS: public(constant(uint256)) = 200
 ENTRANCE_FEE: public(constant(uint256)) = as_wei_value(1, "ether")
 # 10 sec duration by default
 DEFAULT_DURATION: public(constant(uint256)) = 10
 MAX_ARRAY_SIZE: constant(uint256) = 10
+NUM_WORDS: constant(uint32) = 4
 
 ################################################################
 #                       STATE VARIABLES                        #
@@ -57,16 +70,26 @@ last_timestamp: public(uint256)
 last_winner: public(address)
 
 
-
 ################################################################
 #                   CONSTRUCTOR AND FALLBACK                   #
 ################################################################
 @deploy
-def __init__():
+def __init__(
+    key_hash: bytes32,
+    sub_id: uint256,
+    min_request_confirmations: uint16,
+    callback_gas_limit: uint32,
+    vrf_coordinator_v2_5: address,
+):
     ownable.__init__()
     self.raffle_state = RaffleState.OPEN
     self.duration = DEFAULT_DURATION
     self.last_timestamp = block.timestamp
+    VRF_COORDINATOR_2_5 = VRFCoordinatorV2_5(vrf_coordinator_v2_5)
+    KEY_HASH = key_hash
+    SUB_ID = sub_id
+    MIN_REQUEST_CONFIRMATION = min_request_confirmations
+    CALLBACK_GAS_LIMIT = callback_gas_limit
 
 
 @external
@@ -84,8 +107,11 @@ def enter_raffle():
     """
     @dev Enter raffle external call allowed on if raffle is open.
     """
-    assert self.raffle_state == RaffleState.OPEN, "Raffle is computing a winner..."
+    assert (
+        self.raffle_state == RaffleState.OPEN
+    ), "Raffle is computing a winner..."
     self._enter_raffle(msg.sender, msg.value)
+
 
 @external
 @payable
@@ -98,25 +124,20 @@ def pick_winner():
     # Check
     assert len(self.players) > 0, "No players available for raffle"
     current_timestamp: uint256 = block.timestamp
-    assert self.last_timestamp + self.duration <= current_timestamp, "Raffle duration is not reached"
+    assert (
+        self.last_timestamp + self.duration <= current_timestamp
+    ), "Raffle duration is not reached"
 
-    # Effect
-    # @todo RNG with VRF Chainlink
+    # Effect/Interaction
     # Stoping raffle and updating winner prize and address
     self.raffle_state = RaffleState.COMPUTING
-    winner: address = self.players[0]
-    winner_gain: uint256 = self.balance
-    # Reseting the raffle settings
-    self.players = []
-    self.last_winner = winner
-    self.last_timestamp = current_timestamp
-
-    # Interaction
-    success: bool = raw_call(winner, b"", value=winner_gain, revert_on_failure=False)
-    assert success, "Sending prize to winner failed"
-    log PickedWinnerRaffle(winner, winner_gain)
-    
-
+    request_id: uint256 = extcall VRF_COORDINATOR_2_5.requestRandomWords(
+        KEY_HASH,
+        SUB_ID,
+        MIN_REQUEST_CONFIRMATION,
+        CALLBACK_GAS_LIMIT,
+        NUM_WORDS,
+    )
 
 
 ################################################################
@@ -140,17 +161,40 @@ def _enter_raffle(sender: address, amount: uint256):
     if len(self.players) >= MAX_PLAYERS:
         self.raffle_state = RaffleState.COMPUTING
 
-    # Interaction
     log EnteredRaffle(sender, amount)
 
 
-@internal
-def fulfillRandomWords(request_id: uint256, randomWords: DynArray[uint256, MAX_ARRAY_SIZE]):
-    """ Callback VRF function
+@external
+def fulfillRandomWords(
+    request_id: uint256, randomWords: DynArray[uint256, MAX_ARRAY_SIZE]
+):
+    """
+    @notice Callback VRF function
     @dev see: https://docs.chain.link/vrf/v2-5/overview/subscription
     """
-    pass
-    
+    # Check
+    assert (
+        msg.sender == VRF_COORDINATOR_2_5.address
+    ), "Only coordinator can fulfill!"
+
+    # Effect
+    # Picking winner
+    index_winner: uint256 = randomWords[0] % len(self.players)
+    winner: address = self.players[index_winner]
+    winner_gain: uint256 = self.balance
+
+    # Reseting the raffle settings
+    self.players = []
+    self.last_winner = winner
+    self.last_timestamp = block.timestamp
+    self.raffle_state = RaffleState.OPEN
+
+    # Interaction
+    success: bool = raw_call(
+        winner, b"", value=winner_gain, revert_on_failure=False
+    )
+    assert success, "Sending prize to winner failed"
+    log PickedWinnerRaffle(winner, winner_gain)
 
 
 ################################################################
@@ -160,7 +204,7 @@ def fulfillRandomWords(request_id: uint256, randomWords: DynArray[uint256, MAX_A
 @external
 def get_players_count() -> uint256:
     return len(self.players)
-    
+
 
 ################################################################
 #                      GETTERS & SETTERS                       #
@@ -168,5 +212,7 @@ def get_players_count() -> uint256:
 @external
 def set_raffle_duration(duration: uint256):
     ownable._check_owner()
-    assert duration >= DEFAULT_DURATION, "Minimun set for duration not respected"
+    assert (
+        duration >= DEFAULT_DURATION
+    ), "Minimun set for duration not respected"
     self.duration = duration

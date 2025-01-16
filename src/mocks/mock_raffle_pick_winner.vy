@@ -3,7 +3,7 @@
 @license MIT
 @author s3b40
 @dev
-    Mocking raffle contract pick winner to force an assertion 
+    Mocking raffle contract pick winner to force an assertion
     when transaction failed.
 """
 ################################################################
@@ -50,7 +50,6 @@ last_timestamp: public(uint256)
 last_winner: public(address)
 
 
-
 ################################################################
 #                   CONSTRUCTOR AND FALLBACK                   #
 ################################################################
@@ -63,6 +62,7 @@ def __init__():
     # @dev For mocking
     self.players.append(empty(address))
 
+
 @external
 @payable
 def pick_winner():
@@ -74,7 +74,9 @@ def pick_winner():
     # Check
     assert len(self.players) > 0, "No players available for raffle"
     current_timestamp: uint256 = block.timestamp
-    assert self.last_timestamp + self.duration <= current_timestamp, "Raffle duration is not reached"
+    assert (
+        self.last_timestamp + self.duration <= current_timestamp
+    ), "Raffle duration is not reached"
 
     # Effect
     # @todo RNG with VRF Chainlink
@@ -92,4 +94,3 @@ def pick_winner():
     success: bool = False
     assert success, "Sending prize to winner failed"
     log PickedWinnerRaffle(winner, winner_gain)
-    
