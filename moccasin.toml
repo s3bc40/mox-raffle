@@ -1,0 +1,47 @@
+[project]
+src = "src"
+out = "out"
+dot_env = ".env"
+dependencies = ["snekmate"]
+
+# Top level Networks conf
+
+[networks.contracts.raffle]
+deployer_script = "deploy.py"
+
+[networks.contracts.vrf_coordinator_2_5]
+deployer_script = "mock/deploy_vrf_coordinator.py"
+
+# Networks specific conf
+[networks.pyevm.extra_data]
+sub_id = 0
+gas_lane = "0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae"
+entrance_fee = 10_000
+callback_gas_limit = 500_000
+duration = 60
+
+[networks.anvil]
+url = "http://127.0.0.1:8545"
+prompt_live = false
+save_to_db = false
+chain_id = 31337
+default_account_name = "anvil0"
+unsafe_password_file = "$ANVIL_UNSAFE_PASSWORD_PATH"
+
+[networks.anvil.extra_data]
+sub_id = 0
+gas_lane = "0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae"
+entrance_fee = 10_000
+callback_gas_limit = 500_000
+duration = 60
+
+# @dev I think we would need some link token to get faucets 
+# [networks.sepolia]
+# url = "https://ethereum-sepolia-rpc.publicnode.com"
+# chain_id = 11155111
+
+# [tool.moccasin.networks.zksync-sepolia]
+# url = "https://sepolia.era.zksync.dev"
+# chain_id = 300
+# is_zksync = true
+# prompt_live = true

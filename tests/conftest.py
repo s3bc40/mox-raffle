@@ -1,7 +1,6 @@
 import pytest
 from script.deploy import deploy_raffle, deploy_mock_raffle
-from script.mock.deploy_vrf_coordinator import deploy_mock_vrf_coordinator
-from moccasin.config import get_active_network
+from moccasin.config import get_active_network, Network
 from eth_utils import to_wei
 from moccasin.boa_tools import VyperContract
 from moccasin.moccasin_account import MoccasinAccount
@@ -25,7 +24,8 @@ def vrf_coordinator() -> VyperContract:
     @dev allows to pass the ownership on the fulfillRandomWords
         and always get the right vrf for the raffle
     """
-    return deploy_mock_vrf_coordinator()
+    active_network: Network = get_active_network()
+    return active_network.manifest_named("vrf_coordinator_2_5")
 
 
 @pytest.fixture(scope="function")

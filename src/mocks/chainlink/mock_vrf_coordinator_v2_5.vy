@@ -212,15 +212,15 @@ def createSubscription() -> uint256:
         We'll just keep returning 1
     """
     consumers: DynArray[address, MAX_CONSUMER_ARRAY_SIZE] = []
-    self.subscriptions[1] = Subscription(
+    self.subscriptions[0] = Subscription(
         balance=0, native_balance=0, req_count=0
     )
-    self.subscription_config[1] = SubscriptionConfig(
+    self.subscription_config[0] = SubscriptionConfig(
         owner=msg.sender, requested_owner=msg.sender, consumers=consumers
     )
 
-    log SubscriptionCreated(1, msg.sender)
-    return 1
+    log SubscriptionCreated(0, msg.sender)
+    return 0
 
 
 @nonreentrant
@@ -236,8 +236,8 @@ def addConsumer(sub_id: uint256, consumer: address):
     ] = self.subscription_config[sub_id].consumers
     assert len(consumers) < MAX_CONSUMER_ARRAY_SIZE, TOO_MANY_CONSUMERS
 
-    consumer_config.active = True
-    consumers.append(consumer)
+    self.consumers[consumer][sub_id].active = True
+    self.subscription_config[sub_id].consumers.append(consumer)
 
 
 ################################################################
@@ -320,7 +320,6 @@ def _requireValidSubscription(sub_owner: address):
 def consumer_is_added(sub_id: uint256, consumer: address) -> bool:
     return self.consumers[consumer][sub_id].active
 
-
 @view
 @internal
 def only_sub_owner(sub_id: uint256):
@@ -331,7 +330,7 @@ def only_sub_owner(sub_id: uint256):
 
 @view
 @external
-def getSubcription(
+def getSubscription(
     sub_id: uint256,
 ) -> (
     uint96, uint96, uint64, address, DynArray[address, MAX_CONSUMER_ARRAY_SIZE]
